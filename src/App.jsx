@@ -1,8 +1,14 @@
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import Home from "./component/Home";
+
 function App() {
   return (
-    <h1 className="text-4xl font-bold text-blue-600 text-center mt-10">
-      Quiz App 🚀
-    </h1>
+    <Router>
+      <Routes>
+        <Route path="/" element={<Home />} />
+      </Routes>
+    </Router>
   );
 }
+
 export default App;
