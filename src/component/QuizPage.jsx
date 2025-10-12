@@ -1,115 +1,126 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 
 function QuizPage() {
-  // Sample questions for now — we’ll make them dynamic later
-  const questions = [
-    {
-      question: "What is the capital of France?",
-      options: ["Paris", "Berlin", "Madrid", "Rome"],
-      correct: "Paris",
-    },
-    {
-      question: "Which planet is known as the Red Planet?",
-      options: ["Earth", "Mars", "Jupiter", "Saturn"],
-      correct: "Mars",
-    },
-    {
-      question: "Who wrote 'Hamlet'?",
-      options: ["Charles Dickens", "William Shakespeare", "Leo Tolstoy", "Jane Austen"],
-      correct: "William Shakespeare",
-    },
-  ];
+  const navigate = useNavigate();
+  const location = useLocation();
 
+  // Extract category from URL
+  const params = new URLSearchParams(location.search);
+  const category = params.get("category");
+
+  const [questions, setQuestions] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [selected, setSelected] = useState("");
   const [completed, setCompleted] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const navigate = useNavigate();
-  const currentQuestion = questions[currentIndex];
+  // Fetch quiz questions based on category
+  useEffect(() => {
+    if (!category) return;
 
+    fetch(`https://opentdb.com/api.php?amount=5&category=${category}&type=multiple`)
+      .then((res) => res.json())
+      .then((data) => {
+        const formatted = data.results.map((q) => ({
+          question: q.question,
+          options: [...q.incorrect_answers, q.correct_answer].sort(() => Math.random() - 0.5),
+          correct: q.correct_answer,
+        }));
+        setQuestions(formatted);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, [category]); // ✅ properly closed effect
+
+  // ------------------------
+  // Handle Next Question
+  // ------------------------
   const handleNext = () => {
-    if (selected === currentQuestion.correct) {
+    if (selected === questions[currentIndex].correct) {
       setScore(score + 1);
     }
-
-    if (currentIndex < questions.length - 1) {
+    setSelected("");
+    if (currentIndex + 1 < questions.length) {
       setCurrentIndex(currentIndex + 1);
-      setSelected("");
     } else {
       setCompleted(true);
     }
   };
 
+  // ------------------------
+  // Restart or Go Home
+  // ------------------------
   const handleRestart = () => {
-    setScore(0);
-    setCurrentIndex(0);
-    setCompleted(false);
-    setSelected("");
+    navigate("/");
   };
 
+  // ------------------------
+  // Loading State
+  // ------------------------
+  if (loading) {
+    return <div className="text-center text-xl mt-10">Loading questions...</div>;
+  }
+
+  // ------------------------
+  // Completed State
+  // ------------------------
+  if (completed) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen bg-gray-100">
+        <h2 className="text-3xl font-bold mb-4 text-gray-800">Quiz Completed!</h2>
+        <p className="text-lg mb-6">
+          Your score: {score}/{questions.length}
+        </p>
+        <button
+          onClick={handleRestart}
+          className="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 transition"
+        >
+          Back to Home
+        </button>
+      </div>
+    );
+  }
+
+  // ------------------------
+  // Render Quiz
+  // ------------------------
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6">
-      {!completed ? (
-        <div className="w-full max-w-lg bg-white p-8 rounded-2xl shadow-lg">
-          <h2 className="text-2xl font-bold text-gray-800 mb-4">
-            Question {currentIndex + 1} of {questions.length}
-          </h2>
-          <p className="text-lg mb-6">{currentQuestion.question}</p>
-
-          <div className="space-y-3 mb-6">
-            {currentQuestion.options.map((option) => (
-              <button
-                key={option}
-                onClick={() => setSelected(option)}
-                className={`w-full border rounded-lg py-2 px-4 text-left transition 
-                  ${
-                    selected === option
-                      ? "bg-green-100 border-green-400"
-                      : "bg-white hover:bg-gray-100"
-                  }`}
-              >
-                {option}
-              </button>
-            ))}
-          </div>
-
-          <button
-            onClick={handleNext}
-            disabled={!selected}
-            className={`w-full h-12 rounded-lg text-white font-semibold transition
-              ${
-                selected
-                  ? "bg-green-600 hover:bg-green-700"
-                  : "bg-gray-400 cursor-not-allowed"
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-4">
+      <div className="bg-white shadow-md rounded-xl p-6 w-full max-w-2xl">
+        <h2 className="text-xl font-bold mb-4 text-gray-700">
+          Question {currentIndex + 1} of {questions.length}
+        </h2>
+        <p
+          className="text-lg mb-6 text-gray-800"
+          dangerouslySetInnerHTML={{ __html: questions[currentIndex].question }}
+        />
+        <div className="space-y-3">
+          {questions[currentIndex].options.map((option, index) => (
+            <button
+              key={index}
+              onClick={() => setSelected(option)}
+              className={`w-full border px-4 py-2 rounded-lg text-left ${
+                selected === option
+                  ? "bg-green-200 border-green-600"
+                  : "bg-gray-100 hover:bg-gray-200"
               }`}
-          >
-            {currentIndex === questions.length - 1 ? "Finish Quiz" : "Next"}
-          </button>
+              dangerouslySetInnerHTML={{ __html: option }}
+            />
+          ))}
         </div>
-      ) : (
-        <div className="w-full max-w-md bg-white p-8 rounded-2xl shadow-lg text-center">
-          <h2 className="text-3xl font-bold text-green-600 mb-4">Quiz Completed 🎉</h2>
-          <p className="text-lg mb-6">
-            You scored <strong>{score}</strong> out of {questions.length}
-          </p>
-          <div className="flex gap-4 justify-center">
-            <button
-              onClick={handleRestart}
-              className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
-            >
-              Restart
-            </button>
-            <button
-              onClick={() => navigate("/")}
-              className="px-6 py-3 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 transition"
-            >
-              Home
-            </button>
-          </div>
-        </div>
-      )}
+
+        <button
+          onClick={handleNext}
+          disabled={!selected}
+          className={`mt-6 w-full py-3 rounded-lg text-white font-semibold ${
+            selected ? "bg-green-600 hover:bg-green-700" : "bg-gray-400 cursor-not-allowed"
+          }`}
+        >
+          {currentIndex + 1 === questions.length ? "Finish Quiz" : "Next Question"}
+        </button>
+      </div>
     </div>
   );
 }
