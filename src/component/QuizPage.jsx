@@ -13,6 +13,7 @@ function QuizPage() {
   const [selected, setSelected] = useState("");
   const [completed, setCompleted] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(""); // <-- NEW
 
   // ✅ Get query parameters
   const params = new URLSearchParams(location.search);
@@ -20,16 +21,29 @@ function QuizPage() {
   const difficulty = params.get("difficulty");
   const amount = params.get("amount") || 5;
 
-  // ✅ Fetch quiz data
+  // ✅ Fetch quiz data with error handling
   useEffect(() => {
     if (!category) return;
-    setLoading(true);
 
-    fetch(
-      `https://opentdb.com/api.php?amount=${amount}&category=${category}&difficulty=${difficulty}&type=multiple`
-    )
-      .then((res) => res.json())
-      .then((data) => {
+    const fetchQuestions = async () => {
+      setLoading(true);
+      setError(""); // reset any previous error
+
+      try {
+        const res = await fetch(
+          `https://opentdb.com/api.php?amount=${amount}&category=${category}&difficulty=${difficulty}&type=multiple`
+        );
+
+        if (!res.ok) {
+          throw new Error("Network error: Failed to load questions.");
+        }
+
+        const data = await res.json();
+
+        if (!data.results || data.results.length === 0) {
+          throw new Error("No quiz questions found for your selection.");
+        }
+
         const formatted = data.results.map((q) => ({
           question: q.question,
           options: [...q.incorrect_answers, q.correct_answer].sort(
@@ -37,10 +51,17 @@ function QuizPage() {
           ),
           correct: q.correct_answer,
         }));
+
         setQuestions(formatted);
+      } catch (err) {
+        console.error("Fetch error:", err);
+        setError(err.message || "Something went wrong while fetching questions.");
+      } finally {
         setLoading(false);
-      })
-      .catch(() => setLoading(false));
+      }
+    };
+
+    fetchQuestions();
   }, [category, difficulty, amount]);
 
   // ✅ Handle next question
@@ -59,9 +80,7 @@ function QuizPage() {
       },
     ]);
 
-    if (isCorrect) {
-      setScore((prev) => prev + 1);
-    }
+    if (isCorrect) setScore((prev) => prev + 1);
 
     setSelected("");
     if (currentIndex + 1 < questions.length) {
@@ -76,31 +95,46 @@ function QuizPage() {
     return <div className="text-center text-xl mt-10">Loading questions...</div>;
   }
 
+  // ✅ Error state (NEW)
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen bg-gray-100 text-center px-4">
+        <h2 className="text-2xl font-bold text-red-600 mb-3">Error</h2>
+        <p className="text-gray-700 mb-6">{error}</p>
+        <button
+          onClick={() => navigate("/")}
+          className="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 transition"
+        >
+          Go Back Home
+        </button>
+      </div>
+    );
+  }
+
   // ✅ Completed state (with review)
   if (completed) {
     const handleRetakeQuiz = () => {
       navigate(`/quiz?category=${category}&difficulty=${difficulty}&amount=${amount}`);
     };
 
-      // ✅ Save quiz history to localStorage
-  useEffect(() => {
-    const history = JSON.parse(localStorage.getItem("quizHistory")) || [];
-
-    const newRecord = {
-      category,
-      difficulty,
-      score,
-      total: questions.length,
-      date: new Date().toLocaleString(),
-    };
-
-    // Save updated array
-    localStorage.setItem("quizHistory", JSON.stringify([newRecord, ...history]));
-  }, []); // Runs once when quiz completes
+    // ✅ Save quiz history to localStorage
+    useEffect(() => {
+      const history = JSON.parse(localStorage.getItem("quizHistory")) || [];
+      const newRecord = {
+        category,
+        difficulty,
+        score,
+        total: questions.length,
+        date: new Date().toLocaleString(),
+      };
+      localStorage.setItem("quizHistory", JSON.stringify([newRecord, ...history]));
+    }, []); // Runs once when quiz completes
 
     return (
       <div className="min-h-screen bg-gray-50 py-10 px-4 flex flex-col items-center">
-        <h2 className="text-3xl font-bold mb-4 text-gray-800 text-center">Quiz Completed!</h2>
+        <h2 className="text-3xl font-bold mb-4 text-gray-800 text-center">
+          Quiz Completed!
+        </h2>
         <p className="text-lg mb-6 text-center">
           Your score: <span className="font-semibold">{score}</span> / {questions.length}
         </p>
@@ -113,7 +147,9 @@ function QuizPage() {
               <li
                 key={index}
                 className={`border rounded-lg p-4 ${
-                  ans.isCorrect ? "border-green-400 bg-green-50" : "border-red-400 bg-red-50"
+                  ans.isCorrect
+                    ? "border-green-400 bg-green-50"
+                    : "border-red-400 bg-red-50"
                 }`}
               >
                 <p
