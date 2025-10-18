@@ -3,7 +3,9 @@ import { useNavigate } from "react-router-dom";
 
 function Home() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [category, setCategory] = useState(""); // new state
+  const [category, setCategory] = useState("");
+  const [difficulty, setDifficulty] = useState(""); // NEW
+  const [numQuestions, setNumQuestions] = useState(10); // NEW
   const navigate = useNavigate();
 
   // Category IDs from the Open Trivia Database
@@ -15,11 +17,13 @@ function Home() {
   ];
 
   const handleStartQuiz = () => {
-    if (!category) {
-      alert("Please select a category before starting the quiz!");
+    if (!category || !difficulty || !numQuestions) {
+      alert("Please select all options before starting the quiz!");
       return;
     }
-    navigate(`/quiz?category=${category}`);
+
+    // Pass all selected values to quiz route
+    navigate(`/quiz?category=${category}&difficulty=${difficulty}&amount=${numQuestions}`);
   };
 
   return (
@@ -82,6 +86,30 @@ function Home() {
                 {cat.name}
               </option>
             ))}
+          </select>
+
+          {/* Difficulty Select — NEW */}
+          <select
+            className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500"
+            value={difficulty}
+            onChange={(e) => setDifficulty(e.target.value)}
+          >
+            <option value="">Select Difficulty</option>
+            <option value="easy">Easy</option>
+            <option value="medium">Medium</option>
+            <option value="hard">Hard</option>
+          </select>
+
+          {/* Number of Questions Select — NEW */}
+          <select
+            className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500"
+            value={numQuestions}
+            onChange={(e) => setNumQuestions(e.target.value)}
+          >
+            <option value="5">5 Questions</option>
+            <option value="10">10 Questions</option>
+            <option value="15">15 Questions</option>
+            <option value="20">20 Questions</option>
           </select>
 
           {/* Start Quiz Button */}

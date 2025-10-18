@@ -5,9 +5,11 @@ function QuizPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Extract category from URL
+  // Extract all query parameters from URL
   const params = new URLSearchParams(location.search);
   const category = params.get("category");
+  const difficulty = params.get("difficulty"); // ✅ NEW
+  const amount = params.get("amount") || 5; // ✅ NEW (default 5)
 
   const [questions, setQuestions] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -16,27 +18,29 @@ function QuizPage() {
   const [completed, setCompleted] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Fetch quiz questions based on category
+  // ✅ Fetch quiz questions dynamically
   useEffect(() => {
     if (!category) return;
 
-    fetch(`https://opentdb.com/api.php?amount=5&category=${category}&type=multiple`)
+    setLoading(true);
+    fetch(
+      `https://opentdb.com/api.php?amount=${amount}&category=${category}&difficulty=${difficulty}&type=multiple`
+    )
       .then((res) => res.json())
       .then((data) => {
         const formatted = data.results.map((q) => ({
           question: q.question,
-          options: [...q.incorrect_answers, q.correct_answer].sort(() => Math.random() - 0.5),
+          options: [...q.incorrect_answers, q.correct_answer].sort(
+            () => Math.random() - 0.5
+          ),
           correct: q.correct_answer,
         }));
         setQuestions(formatted);
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, [category]); // ✅ properly closed effect
+  }, [category, difficulty, amount]); // ✅ add all dependencies
 
-  // ------------------------
-  // Handle Next Question
-  // ------------------------
   const handleNext = () => {
     if (selected === questions[currentIndex].correct) {
       setScore(score + 1);
@@ -49,23 +53,14 @@ function QuizPage() {
     }
   };
 
-  // ------------------------
-  // Restart or Go Home
-  // ------------------------
   const handleRestart = () => {
     navigate("/");
   };
 
-  // ------------------------
-  // Loading State
-  // ------------------------
   if (loading) {
     return <div className="text-center text-xl mt-10">Loading questions...</div>;
   }
 
-  // ------------------------
-  // Completed State
-  // ------------------------
   if (completed) {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-gray-100">
@@ -83,9 +78,6 @@ function QuizPage() {
     );
   }
 
-  // ------------------------
-  // Render Quiz
-  // ------------------------
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-4">
       <div className="bg-white shadow-md rounded-xl p-6 w-full max-w-2xl">
@@ -115,10 +107,14 @@ function QuizPage() {
           onClick={handleNext}
           disabled={!selected}
           className={`mt-6 w-full py-3 rounded-lg text-white font-semibold ${
-            selected ? "bg-green-600 hover:bg-green-700" : "bg-gray-400 cursor-not-allowed"
+            selected
+              ? "bg-green-600 hover:bg-green-700"
+              : "bg-gray-400 cursor-not-allowed"
           }`}
         >
-          {currentIndex + 1 === questions.length ? "Finish Quiz" : "Next Question"}
+          {currentIndex + 1 === questions.length
+            ? "Finish Quiz"
+            : "Next Question"}
         </button>
       </div>
     </div>
@@ -126,3 +122,4 @@ function QuizPage() {
 }
 
 export default QuizPage;
+
