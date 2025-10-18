@@ -115,9 +115,16 @@ function Home() {
           {/* Start Quiz Button */}
           <button
             onClick={handleStartQuiz}
-            className="w-full lg:w-56 h-12 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition duration-300"
+            className="w-full lg:w-56 h-12 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition duration-300 mr-4"
           >
             Start Quiz
+          </button>
+
+          <button
+            onClick={() => navigate("/history")}
+            className="w-full lg:w-56 h-12 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition duration-300 mr-4"
+          >
+            View Quiz History
           </button>
         </div>
 
