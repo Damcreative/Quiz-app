@@ -5,7 +5,6 @@ function QuizPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // ✅ State declarations
   const [answers, setAnswers] = useState([]);
   const [questions, setQuestions] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -13,63 +12,78 @@ function QuizPage() {
   const [selected, setSelected] = useState("");
   const [completed, setCompleted] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(""); // <-- NEW
 
-  // ✅ Get query parameters
   const params = new URLSearchParams(location.search);
-  const category = params.get("category");
-  const difficulty = params.get("difficulty");
+  const category = params.get("category") || "general_knowledge";
+  const difficulty = params.get("difficulty") || "easy";
   const amount = params.get("amount") || 5;
 
-  // ✅ Fetch quiz data with error handling
+  // ✅ Fetch quiz questions (moved outside useEffect so we can reuse it)
+  const fetchQuestions = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(
+        `https://the-trivia-api.com/api/questions?categories=${category}&limit=${amount}&difficulty=${difficulty}`
+      );
+      const data = await res.json();
+
+      const formatted = (data || []).map((q) => ({
+        question: q.question,
+        options: [...q.incorrectAnswers, q.correctAnswer].sort(
+          () => Math.random() - 0.5
+        ),
+        correct: q.correctAnswer,
+      }));
+
+      setQuestions(formatted);
+      setCompleted(false);
+      setScore(0);
+      setAnswers([]);
+      setCurrentIndex(0);
+    } catch (error) {
+      console.error("Quiz fetch failed:", error);
+      // fallback data
+      setQuestions([
+        {
+          question: "What is the capital of France?",
+          options: ["Paris", "London", "Berlin", "Madrid"],
+          correct: "Paris",
+        },
+        {
+          question: "Which planet is known as the Red Planet?",
+          options: ["Earth", "Venus", "Mars", "Jupiter"],
+          correct: "Mars",
+        },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ Initial fetch
   useEffect(() => {
-    if (!category) return;
-
-    const fetchQuestions = async () => {
-      setLoading(true);
-      setError(""); // reset any previous error
-
-      try {
-        const res = await fetch(
-          `https://opentdb.com/api.php?amount=${amount}&category=${category}&difficulty=${difficulty}&type=multiple`
-        );
-
-        if (!res.ok) {
-          throw new Error("Network error: Failed to load questions.");
-        }
-
-        const data = await res.json();
-
-        if (!data.results || data.results.length === 0) {
-          throw new Error("No quiz questions found for your selection.");
-        }
-
-        const formatted = data.results.map((q) => ({
-          question: q.question,
-          options: [...q.incorrect_answers, q.correct_answer].sort(
-            () => Math.random() - 0.5
-          ),
-          correct: q.correct_answer,
-        }));
-
-        setQuestions(formatted);
-      } catch (err) {
-        console.error("Fetch error:", err);
-        setError(err.message || "Something went wrong while fetching questions.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchQuestions();
   }, [category, difficulty, amount]);
 
-  // ✅ Handle next question
+  // ✅ Save quiz history when completed
+  useEffect(() => {
+    if (completed) {
+      const history = JSON.parse(localStorage.getItem("quizHistory")) || [];
+      const newRecord = {
+        category,
+        difficulty,
+        score,
+        total: questions.length,
+        date: new Date().toLocaleString(),
+      };
+      localStorage.setItem("quizHistory", JSON.stringify([newRecord, ...history]));
+    }
+  }, [completed]);
+
   const handleNext = () => {
     const currentQuestion = questions[currentIndex];
     const isCorrect = selected === currentQuestion.correct;
 
-    // Save this question’s result
     setAnswers((prev) => [
       ...prev,
       {
@@ -90,46 +104,13 @@ function QuizPage() {
     }
   };
 
-  // ✅ Loading state
-  if (loading) {
-    return <div className="text-center text-xl mt-10">Loading questions...</div>;
-  }
+  // ✅ Retake quiz without leaving page
+  const handleRetakeQuiz = () => {
+    fetchQuestions(); // Refetch and reset everything
+  };
 
-  // ✅ Error state (NEW)
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center h-screen bg-gray-100 text-center px-4">
-        <h2 className="text-2xl font-bold text-red-600 mb-3">Error</h2>
-        <p className="text-gray-700 mb-6">{error}</p>
-        <button
-          onClick={() => navigate("/")}
-          className="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 transition"
-        >
-          Go Back Home
-        </button>
-      </div>
-    );
-  }
-
-  // ✅ Completed state (with review)
+  // ✅ Completed state
   if (completed) {
-    const handleRetakeQuiz = () => {
-      navigate(`/quiz?category=${category}&difficulty=${difficulty}&amount=${amount}`);
-    };
-
-    // ✅ Save quiz history to localStorage
-    useEffect(() => {
-      const history = JSON.parse(localStorage.getItem("quizHistory")) || [];
-      const newRecord = {
-        category,
-        difficulty,
-        score,
-        total: questions.length,
-        date: new Date().toLocaleString(),
-      };
-      localStorage.setItem("quizHistory", JSON.stringify([newRecord, ...history]));
-    }, []); // Runs once when quiz completes
-
     return (
       <div className="min-h-screen bg-gray-50 py-10 px-4 flex flex-col items-center">
         <h2 className="text-3xl font-bold mb-4 text-gray-800 text-center">
@@ -139,9 +120,10 @@ function QuizPage() {
           Your score: <span className="font-semibold">{score}</span> / {questions.length}
         </p>
 
-        {/* ✅ Answers Review */}
         <div className="bg-white shadow-md rounded-xl p-6 w-full max-w-3xl mb-6">
-          <h3 className="text-2xl font-semibold mb-4 text-gray-700">Review Your Answers</h3>
+          <h3 className="text-2xl font-semibold mb-4 text-gray-700">
+            Review Your Answers
+          </h3>
           <ul className="space-y-4">
             {answers.map((ans, index) => (
               <li
@@ -154,7 +136,9 @@ function QuizPage() {
               >
                 <p
                   className="font-medium text-gray-800"
-                  dangerouslySetInnerHTML={{ __html: `${index + 1}. ${ans.question}` }}
+                  dangerouslySetInnerHTML={{
+                    __html: `${index + 1}. ${ans.question}`,
+                  }}
                 />
                 <p className="mt-2 text-sm">
                   <strong>Your Answer:</strong>{" "}
@@ -177,7 +161,6 @@ function QuizPage() {
           </ul>
         </div>
 
-        {/* Buttons */}
         <div className="flex gap-4 flex-wrap justify-center">
           <button
             onClick={handleRetakeQuiz}
@@ -194,6 +177,11 @@ function QuizPage() {
         </div>
       </div>
     );
+  }
+
+  // ✅ Loading state
+  if (loading) {
+    return <div className="text-center text-xl mt-10">Loading questions...</div>;
   }
 
   // ✅ Quiz in progress

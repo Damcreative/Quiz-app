@@ -5,6 +5,7 @@ import About from "./component/AboutPage";
 import Browse from "./component/BrowsePage";
 import Login from "./component/LoginPage";
 import Header from "./component/Header"; // ✅ import header
+import HistoryPage from "./component/HistoryPage";
 
 function App() {
   return (
@@ -17,6 +18,7 @@ function App() {
           <Route path="/about" element={<About />} />
           <Route path="/browse" element={<Browse />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/history" element={<HistoryPage />} />
         </Routes>
       </div>
     </Router>
